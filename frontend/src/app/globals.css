@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+	:root {
+		--background: 0 0% 100%;
+		--foreground: 222.2 84% 4.9%;
+		--card: 0 0% 100%;
+		--card-foreground: 222.2 84% 4.9%;
+		--popover: 0 0% 100%;
+		--popover-foreground: 222.2 84% 4.9%;
+		--primary: 221.2 83.2% 53.3%;
+		--primary-foreground: 210 40% 98%;
+		--secondary: 210 40% 96%;
+		--secondary-foreground: 222.2 84% 4.9%;
+		--muted: 210 40% 96%;
+		--muted-foreground: 215.4 16.3% 46.9%;
+		--accent: 210 40% 96%;
+		--accent-foreground: 222.2 84% 4.9%;
+		--destructive: 0 84.2% 60.2%;
+		--destructive-foreground: 210 40% 98%;
+		--border: 214.3 31.8% 91.4%;
+		--input: 214.3 31.8% 91.4%;
+		--ring: 221.2 83.2% 53.3%;
+		--radius: 0.5rem;
+	}
+
+	.dark {
+		--background: 222.2 84% 4.9%;
+		--foreground: 210 40% 98%;
+		--card: 222.2 84% 4.9%;
+		--card-foreground: 210 40% 98%;
+		--popover: 222.2 84% 4.9%;
+		--popover-foreground: 210 40% 98%;
+		--primary: 217.2 91.2% 59.8%;
+		--primary-foreground: 222.2 84% 4.9%;
+		--secondary: 217.2 32.6% 17.5%;
+		--secondary-foreground: 210 40% 98%;
+		--muted: 217.2 32.6% 17.5%;
+		--muted-foreground: 215 20.2% 65.1%;
+		--accent: 217.2 32.6% 17.5%;
+		--accent-foreground: 210 40% 98%;
+		--destructive: 0 62.8% 30.6%;
+		--destructive-foreground: 210 40% 98%;
+		--border: 217.2 32.6% 17.5%;
+		--input: 217.2 32.6% 17.5%;
+		--ring: 224.3 76.3% 94.1%;
+	}
+}
+
+@layer base {
+	* {
+		@apply border-border;
+	}
+	body {
+		@apply bg-background text-foreground;
+	}
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+}
+
+::-webkit-scrollbar-track {
+	@apply bg-gray-100 dark:bg-gray-800;
+}
+
+::-webkit-scrollbar-thumb {
+	@apply bg-gray-300 dark:bg-gray-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	@apply bg-gray-400 dark:bg-gray-500;
+}
+
+/* Code syntax highlighting */
+.code-block {
+	@apply bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto;
+	font-family: "JetBrains Mono", "Menlo", "Monaco", monospace;
+}
+
+/* Loading animation */
+.loading-dots {
+	@apply inline-flex space-x-1;
+}
+
+.loading-dots > div {
+	@apply w-2 h-2 bg-primary-500 rounded-full animate-pulse;
+	animation-delay: calc(var(--i) * 0.1s);
+}
+
+/* Custom animations */
+@keyframes shimmer {
+	0% {
+		background-position: -200px 0;
+	}
+	100% {
+		background-position: calc(200px + 100%) 0;
+	}
+}
+
+.shimmer {
+	background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+	background-size: 200px 100%;
+	animation: shimmer 1.5s infinite;
+}
+
+/* Issue severity colors */
+.issue-critical {
+	@apply border-l-4 border-error-500 bg-error-50 dark:bg-error-900/20;
+}
+
+.issue-high {
+	@apply border-l-4 border-warning-500 bg-warning-50 dark:bg-warning-900/20;
+}
+
+.issue-medium {
+	@apply border-l-4 border-secondary-400 bg-secondary-50 dark:bg-secondary-900/20;
+}
+
+.issue-low {
+	@apply border-l-4 border-primary-400 bg-primary-50 dark:bg-primary-900/20;
+}
+
+/* Metric progress bars */
+.metric-bar {
+	@apply h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden;
+}
+
+.metric-fill {
+	@apply h-full transition-all duration-500 ease-out;
+}
+
+.metric-excellent {
+	@apply bg-success-500;
+}
+.metric-good {
+	@apply bg-primary-500;
+}
+.metric-average {
+	@apply bg-warning-500;
+}
+.metric-poor {
+	@apply bg-error-500;
+}

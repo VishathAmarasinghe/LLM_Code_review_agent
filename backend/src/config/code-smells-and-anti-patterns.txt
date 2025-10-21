@@ -1,0 +1,1221 @@
+# Code Smells and Anti-Patterns Detection Guide for LLM
+
+This document contains DETAILED, STEP-BY-STEP detection instructions for identifying code smells and anti-patterns. As an LLM, you must follow these precise detection steps for each smell.
+
+---
+
+## 🎯 DETECTION METHODOLOGY
+
+For EACH code smell, you must:
+1. **Read the detection steps** carefully
+2. **Execute each step** on the code you're reviewing
+3. **Document findings** with exact line numbers
+4. **Provide evidence** of why it's a smell
+5. **Suggest fixes** with code examples
+
+---
+
+## CODE SMELLS
+
+### 1. LONG METHOD / FUNCTION
+
+**What it is**: A function that does too much, has too many lines, or handles multiple responsibilities.
+
+**Why it matters**: Hard to read, test, debug, and maintain. Increases cognitive load.
+
+**STEP-BY-STEP DETECTION PROCESS:**
+
+#### Step 1: Count the Lines
+```
+ACTION: For each function/method in the file:
+1. Find the opening brace { after the function declaration
+2. Find the matching closing brace }
+3. Count the lines between them (exclude empty lines and comment-only lines)
+4. If line count > 30: FLAG as potential Long Method
+
+EXAMPLE:
+function processOrder(order) {  // Line 10
+  // validation
+  // processing  
+  // database calls
+  // email sending
+  // logging
+  return result;                // Line 55
+}
+// Lines = 55 - 10 = 45 lines → FLAG THIS
+```
+
+#### Step 2: Count Responsibilities
+```
+ACTION: For the flagged function, identify distinct responsibilities:
+- Database operations (queries, inserts, updates)
+- Validation logic (checking inputs)
+- Business logic (calculations, transformations)
+- External API calls (fetch, axios calls)
+- Email/notifications
+- Logging/monitoring
+- File operations
+- Authentication/authorization
+- Data formatting/parsing
+
+If the function has 3+ distinct responsibilities: CONFIRM as Long Method
+
+EXAMPLE:
+async function createUser(userData) {
+  // 1. Validation - checks email, password
+  // 2. Database - creates user record
+  // 3. Email - sends welcome email
+  // 4. Logging - logs user creation
+}
+// Has 4 responsibilities → CONFIRM as Long Method
+```
+
+#### Step 3: Check Nesting Depth
+```
+ACTION: Count indentation levels:
+1. Start at function body = level 0
+2. Each if/for/while/try/function increases level by 1
+3. If max nesting > 3 levels: Additional evidence of Long Method
+
+EXAMPLE:
+function process(data) {           // Level 0
+  if (data) {                      // Level 1
+    for (let item of data) {       // Level 2
+      if (item.valid) {            // Level 3
+        if (item.type === 'A') {   // Level 4 → TOO DEEP!
+          // ...
+        }
+      }
+    }
+  }
+}
+```
+
+#### Step 4: Report the Smell
+```
+REPORTING FORMAT:
+**Location**: Line X-Y in `path/to/file.ts`
+**Code Smell**: LONG METHOD
+📊 **Evidence**:
+   - Line count: X lines (threshold: 30)
+   - Responsibilities: X distinct operations (threshold: 3)
+   - Max nesting: X levels (threshold: 3)
+📝 **Impact**: [Explain specific maintainability issues]
+💡 **Suggestion**: 
+   - Extract validation into `validateUserData()`
+   - Extract email logic into `sendWelcomeEmail()`
+   - [Provide code example]
+```
+
+**DETECTION CHECKLIST:**
+- [ ] Did I count actual code lines (not just estimate)?
+- [ ] Did I identify specific responsibilities?
+- [ ] Did I check nesting depth?
+- [ ] Did I provide exact line numbers?
+- [ ] Did I suggest specific extracted functions?
+
+---
+
+### 2. MAGIC NUMBERS / MAGIC STRINGS
+
+**What it is**: Literal numeric or string values used directly in code without explanation.
+
+**Why it matters**: Hard to understand meaning, error-prone when values need to change, difficult to maintain.
+
+**STEP-BY-STEP DETECTION PROCESS:**
+
+#### Step 1: Scan for Numeric Literals
+```
+ACTION: Search for numbers that are NOT:
+- Array indices (arr[0], arr[1])
+- Loop counters (i = 0, i++)
+
+LOOK FOR:
+- HTTP status codes: 200, 404, 403, 500
+- Business constants: 0.1, 0.15, 18, 21, 65
+- Timeouts: 3000, 5000, 60000
+- Buffer sizes: 1024, 4096
+- Calculations that are just having numeric numeric values
+- Percentages: 0.05, 0.25, 0.75
+- other numeric values
+
+EXAMPLE SCAN:
+if (age >= 18) {              // ← FLAG: 18 is magic
+if (statusCode === 403) {     // ← FLAG: 403 is magic
+setTimeout(fn, 5000);         // ← FLAG: 5000 is magic
+const tax = price * 0.08;     // ← FLAG: 0.08 is magic
+```
+
+#### Step 2: Scan for String Literals
+```
+ACTION: Search for string literals that represent:
+- Role names: "admin", "user", "guest"
+- Status values: "pending", "approved", "rejected"
+- Error messages: "Access denied", "Invalid input"
+- Configuration keys: "API_KEY", "database_url"
+- Fixed values: "USD", "en-US", "POST"
+
+IGNORE:
+- JSX text content
+- Log messages with variables
+- UI display text (unless reused)
+
+EXAMPLE SCAN:
+if (role === "admin") {              // ← FLAG: "admin" is magic
+if (status === "PENDING") {          // ← FLAG: "PENDING" is magic
+showError("Access denied");          // ← FLAG: "Access denied" is magic
+fetch(url, { method: "POST" });      // ← FLAG: "POST" is magic
+```
+
+#### Step 3: Check for Duplication
+```
+ACTION: If the same literal appears 2+ times:
+1. Search the entire file for that literal
+2. Count occurrences
+3. If found 2+ times: STRONG evidence of Magic Number/String
+
+EXAMPLE:
+// File scan results:
+// "admin" appears 5 times → DEFINITE Magic String
+// 403 appears 3 times → DEFINITE Magic Number
+// 0.08 appears 2 times → CONFIRM Magic Number
+```
+
+#### Step 4: Report the Smell
+```
+REPORTING FORMAT:
+📍 **Location**: Line X in `path/to/file.ts`
+🔴 **Code Smell**: MAGIC NUMBER/STRING
+📊 **Evidence**:
+   - Value: `403` (or `"admin"`)
+   - Occurrences: X times in this file
+   - Context: Used in [condition/calculation/etc]
+📝 **Impact**: Unclear meaning, hard to maintain if value changes
+💡 **Suggestion**: 
+   ```typescript
+   // Define constant
+   const HTTP_FORBIDDEN = 403;
+   const ADMIN_ROLE = "admin";
+   const TAX_RATE = 0.08;
+   
+   // Use constant
+   if (statusCode === HTTP_FORBIDDEN) { ... }
+   if (role === ADMIN_ROLE) { ... }
+   const tax = price * TAX_RATE;
+   ```
+```
+
+**DETECTION CHECKLIST:**
+- [ ] Did I scan for all numeric literals > 2?
+- [ ] Did I identify string literals representing constants?
+- [ ] Did I check for duplicates?
+- [ ] Did I suggest meaningful constant names?
+- [ ] Did I provide refactored code?
+
+---
+
+### 3. DUPLICATE CODE
+
+**What it is**: Similar or identical code appearing in multiple locations.
+
+**Why it matters**: Changes must be made in multiple places, increasing maintenance cost and bug risk.
+
+**STEP-BY-STEP DETECTION PROCESS:**
+
+#### Step 1: Identify Candidate Patterns
+```
+ACTION: Look for these common duplication patterns:
+
+**BASIC PATTERNS:**
+1-9. Similar function names, repeated validation/API/error handling, data transformations
+   - Use codebase_search to find functions doing same thing with different code
+
+**ADVANCED PATTERNS (Use codebase_search):**
+10. **Structural Clones** - Same control flow, different names | Search: "authenticate check user password token"
+11. **Semantic Duplicates** - Different code, same goal | Search: "validate email format"
+12. **Algorithm Variants** - Same algorithm, different style | Search: "filter users extract emails"
+13. **Async Patterns** - Repeated promise/await | Search: "fetch API handle error"
+14. **Config Duplication** - Similar setup objects | Search: "API configuration headers timeout"
+15. **Guard Clauses** - Repeated null/auth checks | Search: "check parameter null early return"
+16. **Transform Pipelines** - Similar map/filter chains | Search: "transform response to model"
+17. **Factory Patterns** - Multiple createX/buildX | Search: "create entity with validation"
+18. **Retry Logic** - Repeated error handling | Search: "retry failed operation backoff"
+19. **Event Handlers** - Similar onClick/onChange | Search: "handle form submission validation"
+20. **State Updates** - Repeated setState/dispatch | Search: "update state after API call"
+21. **Cross-Cutting** - Scattered logging/auth | Search: "log operation context" "check authentication"
+22. **Type Conversion** - Repeated parsing | Search: "parse JSON response"
+23. **Partial Duplication** - 5+ line blocks repeated | Search: "hash password with bcrypt"
+24. **Abstraction Leakage** - Repeated low-level ops | Search: "execute SQL query parse results"
+25. **Test Patterns** - Repeated setup/assertions | Search: "setup test data mock service"
+
+**DETECTION:**
+- Search semantically for each pattern
+- use search tools, codebase_search and other tools for identify duplicates.
+- Compare: structure (30%) + semantics (40%) + syntax (20%) + behavior (10%)
+- Score: 85%+ CRITICAL, 70-84% HIGH, 50-69% MEDIUM
+
+**RED FLAGS (High Priority):**
+⚠️ Same sequence of operations (find → validate → transform → save)
+⚠️ Same error messages with different variable names  
+⚠️ Same number of parameters and return type
+⚠️ Same dependencies (libraries/services)
+⚠️ Could merge into one function with 1-2 additional parameters
+
+**QUICK CHECKS:**
+□ Same control flow (if/else/loop structure)?
+□ Same input → output behavior?
+□ Same error handling patterns?
+□ Same external dependencies?
+
+EXAMPLES:
+- loginUser() & authenticateAdmin() - same flow, diff names = STRUCTURAL CLONE
+- regex vs split vs library for email validation = SEMANTIC DUPLICATE
+- for loop vs .filter().map() doing same thing = ALGORITHM VARIANT
+```
+
+#### Step 2: Use codebase_search Tool
+```
+ACTION: For each pattern, use semantic searches (see pattern list above for query examples)
+```
+
+#### Step 3: Compare Implementations
+```
+ACTION: Compare using: Syntactic (20%) + Structural (30%) + Semantic (40%) + Behavioral (10%)
+Thresholds: 85%+ CRITICAL | 70-84% HIGH | 50-69% MEDIUM
+```
+
+#### Step 4: Report the Smell
+```
+REPORTING FORMAT:
+📍 **Location**: Multiple locations
+🔴 **Code Smell**: DUPLICATE CODE
+📊 **Evidence**:
+   - Pattern: [Email validation / API call / etc]
+   - Occurrences:
+     * `src/utils/validation.ts` lines 10-15
+     * `src/services/userService.ts` lines 45-50
+     * `src/components/Form.tsx` lines 123-128
+   - Similarity: X% identical logic
+📝 **Impact**: Changes must be synchronized across X locations, risk of inconsistent behavior
+💡 **Suggestion**: 
+   ```typescript
+   // Create shared utility
+   // src/utils/validators.ts
+   export function validateEmail(email: string): boolean {
+     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+   }
+   
+   // Use in all locations
+   import { validateEmail } from '@/utils/validators';
+   if (!validateEmail(userEmail)) { ... }
+   ```
+```
+
+**DETECTION CHECKLIST:**
+- [ ] Did I use codebase_search to find similar patterns?
+- [ ] Did I compare implementations?
+- [ ] Did I list ALL duplicate locations?
+- [ ] Did I calculate similarity percentage?
+- [ ] Did I suggest a shared implementation?
+
+---
+
+### 4. GOD CLASS / GOD OBJECT
+
+**What it is**: A class or object that knows too much or does too much.
+
+**Why it matters**: Violates Single Responsibility Principle, hard to maintain, high coupling.
+
+**STEP-BY-STEP DETECTION PROCESS:**
+
+#### Step 1: Count Class Members
+```
+ACTION: For each class, count:
+1. Number of methods (threshold: > 15 methods)
+2. Number of properties/fields (threshold: > 10 fields)
+3. Lines of code in class (threshold: > 300 lines)
+
+EXAMPLE:
+class UserManager {
+  // 25 properties
+  // 30 methods
+  // 500 lines
+}
+// → Exceeds all thresholds → FLAG as God Class
+```
+
+#### Step 2: Identify Responsibilities
+```
+ACTION: List what the class does:
+- User CRUD operations
+- Authentication
+- Authorization
+- Profile management
+- Notification sending
+- Email verification
+- Password reset
+- Session management
+- Analytics tracking
+
+If class has 4+ distinct responsibilities: CONFIRM as God Class
+```
+
+#### Step 3: Report the Smell
+```
+REPORTING FORMAT:
+📍 **Location**: Line X-Y in `path/to/file.ts`
+🔴 **Code Smell**: GOD CLASS
+📊 **Evidence**:
+   - Methods: X (threshold: 15)
+   - Properties: X (threshold: 10)
+   - Lines: X (threshold: 300)
+   - Responsibilities: X distinct domains
+📝 **Impact**: High coupling, difficult to test, violates SRP
+💡 **Suggestion**: 
+   Split into focused classes:
+   - UserRepository (CRUD)
+   - AuthenticationService (login/logout)
+   - AuthorizationService (permissions)
+   - UserProfileService (profile operations)
+```
+
+**DETECTION CHECKLIST:**
+- [ ] Did I count methods and properties?
+- [ ] Did I identify distinct responsibilities?
+- [ ] Did I suggest specific class splits?
+
+---
+
+### 5. DEAD CODE
+
+**What it is**: Code that is never executed or variables that are never used.
+
+**Why it matters**: Increases maintenance burden, confuses developers, bloats codebase.
+
+**STEP-BY-STEP DETECTION PROCESS:**
+
+#### Step 1: Find Unused Variables
+```
+ACTION: Look for:
+1. Variables declared but never used
+2. Function parameters never referenced
+3. Imported modules never used
+4. Constants defined but not referenced
+
+PATTERNS:
+const unused = getValue();  // Variable never used after this
+function process(data, config) {  // 'config' never used
+  return data;
+}
+```
+
+#### Step 2: Find Unreachable Code
+```
+ACTION: Look for:
+1. Code after return statements
+2. Code in if (false) blocks
+3. Code after throw statements
+4. Conditions that are always false
+
+EXAMPLES:
+function test() {
+  return true;
+  console.log('Never runs');  // ← DEAD CODE
+}
+
+if (false) {
+  doSomething();  // ← DEAD CODE
+}
+```
+
+#### Step 3: Report the Smell
+```
+REPORTING FORMAT:
+ **Location**: Line X in `path/to/file.ts`
+ **Code Smell**: DEAD CODE
+ **Evidence**:
+   - Type: [Unused variable / Unreachable code]
+   - Name: `variableName`
+ **Impact**: Code bloat, maintenance confusion
+ **Suggestion**: Remove the unused code
+```
+
+**DETECTION CHECKLIST:**
+- [ ] Did I check for unused variables?
+- [ ] Did I find unreachable code?
+- [ ] Did I verify it's truly unused (not dynamic)?
+
+---
+
+## ANTI-PATTERNS
+
+### 6. GLOBAL VARIABLES / NAMESPACE POLLUTION
+
+**What it is**: Variables declared at global/module scope and accessed widely.
+
+**Why it matters**: Hidden dependencies, side effects, testing difficulty, name collisions.
+
+**STEP-BY-STEP DETECTION PROCESS:**
+
+#### Step 1: Scan for Global Declarations
+```
+ACTION: Look for variable declarations OUTSIDE of functions/classes:
+
+CHECK FOR:
+1. Variables without const/let/var (implicit globals):
+   userCount = 0;           // ← FLAG
+   currentUser = null;      // ← FLAG
+
+2. Top-level module variables:
+   let globalCache = {};    // ← CHECK usage
+   var userId = 0;          // ← CHECK usage
+
+3. Window object assignments:
+   window.appState = {};    // ← FLAG
+   globalThis.config = {};  // ← FLAG
+
+4. Export of mutable state:
+   export let sharedState = {}; // ← FLAG
+```
+
+#### Step 2: Check Usage Scope
+```
+ACTION: For each global variable found:
+1. Search how many functions/files use it
+2. Check if it's modified (write operations)
+3. Count modification points
+
+SCORING:
+- Used in 1 function: Low concern
+- Used in 2-3 functions: Medium concern
+- Used in 4+ functions or 2+ files: HIGH concern → FLAG
+
+EXAMPLE:
+let userCache = {};  // Declared at module top
+
+function addUser(user) { userCache[user.id] = user; }    // Write 1
+function getUser(id) { return userCache[id]; }           // Read 1
+function clearCache() { userCache = {}; }                // Write 2
+function getUserCount() { return Object.keys(userCache).length; } // Read 2
+
+// → Used in 4 functions → HIGH concern → CONFIRM as Global Variable smell
+```
+
+#### Step 3: Report the Smell
+```
+REPORTING FORMAT:
+ **Location**: Line X in `path/to/file.ts` (module scope)
+ **Anti-Pattern**: GLOBAL VARIABLE
+ **Evidence**:
+   - Variable: `userCache`
+   - Scope: Module-level
+   - Usage: Modified in X locations, read in Y locations
+   - Files affected: X
+ **Impact**: Hidden dependencies, difficult to test, potential race conditions
+ **Suggestion**: 
+   ```typescript
+   // Encapsulate in a class
+   class UserCache {
+     private cache: Map<string, User> = new Map();
+     
+     add(user: User): void {
+       this.cache.set(user.id, user);
+     }
+     
+     get(id: string): User | undefined {
+       return this.cache.get(id);
+     }
+     
+     clear(): void {
+       this.cache.clear();
+     }
+   }
+   
+   // Create instance (singleton or dependency injection)
+   export const userCache = new UserCache();
+   ```
+```
+
+**DETECTION CHECKLIST:**
+- [ ] Did I find variables outside functions/classes?
+- [ ] Did I check usage scope?
+- [ ] Did I count modification points?
+- [ ] Did I suggest encapsulation?
+
+---
+
+### 7. MUTABLE SHARED STATE
+
+**What it is**: Objects or variables that are modified by multiple functions.
+
+**Why it matters**: Unpredictable behavior, race conditions, debugging nightmares.
+
+**STEP-BY-STEP DETECTION PROCESS:**
+
+#### Step 1: Identify Shared Objects
+```
+ACTION: Look for:
+1. Objects passed as parameters and modified
+2. Module-level objects with mutations
+3. Class properties modified by multiple methods
+4. Objects stored in closures and mutated
+
+SCAN FOR PATTERNS:
+// Direct mutation
+config.theme = 'dark';
+state.count++;
+user.name = 'New Name';
+
+// Array mutations
+array.push(item);
+array.splice(0, 1);
+array[0] = value;
+
+// Object property assignments
+obj.prop = value;
+obj[key] = value;
+```
+
+#### Step 2: Trace Mutations
+```
+ACTION: For each mutable object:
+1. Find all locations where it's modified
+2. Find all locations where it's read
+3. Check if modifications happen in different functions
+4. If modified in 2+ functions: FLAG as Mutable Shared State
+
+EXAMPLE ANALYSIS:
+const config = { theme: 'light', lang: 'en' };
+
+function setTheme(theme) { 
+  config.theme = theme;        // Mutation Point 1
+}
+
+function setLanguage(lang) { 
+  config.lang = lang;          // Mutation Point 2
+}
+
+function resetConfig() {
+  config.theme = 'light';      // Mutation Point 3
+  config.lang = 'en';
+}
+
+// → 3 mutation points in different functions → CONFIRM Mutable Shared State
+```
+
+#### Step 3: Check for Immutability Patterns
+```
+ACTION: Check if the code uses immutable patterns:
+ GOOD (returns new object):
+   return { ...config, theme: newTheme };
+   return Object.assign({}, config, { theme });
+
+ BAD (mutates existing):
+   config.theme = newTheme;
+   Object.assign(config, { theme });
+
+If using mutation patterns: CONFIRM as anti-pattern
+```
+
+#### Step 4: Report the Smell
+```
+REPORTING FORMAT:
+ **Location**: Lines X, Y, Z in `path/to/file.ts`
+ **Anti-Pattern**: MUTABLE SHARED STATE
+ **Evidence**:
+   - Object: `config`
+   - Mutation points: X locations
+     * Line 45: `config.theme = ...`
+     * Line 78: `config.lang = ...`
+     * Line 102: Direct property assignment
+   - Scope: Shared across X functions
+ **Impact**: Unpredictable state changes, race conditions, difficult debugging
+ **Suggestion**: 
+   ```typescript
+   // Use immutable updates
+   interface Config {
+     theme: string;
+     lang: string;
+   }
+   
+   function setTheme(currentConfig: Config, theme: string): Config {
+     return { ...currentConfig, theme };
+   }
+   
+   function setLanguage(currentConfig: Config, lang: string): Config {
+     return { ...currentConfig, lang };
+   }
+   
+   // Or use a state management library (Redux, Zustand)
+   ```
+```
+
+**DETECTION CHECKLIST:**
+- [ ] Did I find objects modified in multiple places?
+- [ ] Did I count mutation points?
+- [ ] Did I check for immutable patterns?
+- [ ] Did I suggest immutable alternative?
+
+---
+
+### 8. OVERLY-COMPLEX / SPAGHETTI FUNCTIONS
+
+**What it is**: Functions with deeply nested logic, many conditions, or tangled control flow.
+
+**Why it matters**: Hard to understand, difficult to test, error-prone modifications.
+
+**STEP-BY-STEP DETECTION PROCESS:**
+
+#### Step 1: Count Nesting Levels
+```
+ACTION: Count maximum indentation depth:
+1. Function body = level 0
+2. Each if/else/for/while/try/switch adds 1 level
+3. Find the deepest point
+
+THRESHOLD: If max nesting > 3 levels → FLAG
+
+EXAMPLE:
+function process(user) {              // Level 0
+  if (user) {                         // Level 1
+    if (user.isActive) {              // Level 2
+      if (user.role === 'admin') {    // Level 3
+        if (user.permissions) {       // Level 4 ← TOO DEEP!
+          // ...
+        }
+      }
+    }
+  }
+}
+```
+
+#### Step 2: Count Conditional Branches
+```
+ACTION: Count decision points:
+- if statements
+- else if branches
+- switch cases
+- ternary operators (? :)
+- && and || operators in conditions
+
+THRESHOLD: If total branches > 10 → FLAG
+
+EXAMPLE:
+function getUserStatus(user) {
+  if (!user) return 'none';              // 1
+  if (user.deleted) return 'deleted';    // 2
+  if (!user.verified) return 'pending';  // 3
+  if (user.role === 'admin') {           // 4
+    if (user.active) return 'admin';     // 5
+    return 'admin_inactive';
+  } else if (user.role === 'moderator') { // 6
+    return 'moderator';
+  } else if (user.role === 'user') {     // 7
+    if (user.premium) return 'premium';  // 8
+    if (user.trial) return 'trial';      // 9
+    return 'basic';
+  }
+  return 'unknown';
+}
+// → 9 decision points → CLOSE to threshold
+```
+
+#### Step 3: Calculate Cyclomatic Complexity
+```
+ACTION: Simple complexity formula:
+Complexity = 1 + (number of decision points)
+
+Decision points include:
+- if/else if
+- for/while/do-while
+- case in switch
+- && and ||
+- catch clauses
+- ternary operators
+
+THRESHOLD: If complexity > 10 → FLAG
+
+CALCULATION EXAMPLE:
+function calculate(a, b, op) {
+  if (op === '+') return a + b;      // +1
+  if (op === '-') return a - b;      // +1
+  if (op === '*') return a * b;      // +1
+  if (op === '/') {                  // +1
+    if (b === 0) throw Error();      // +1
+    return a / b;
+  }
+  if (op === '%') {                  // +1
+    if (b === 0) throw Error();      // +1
+    return a % b;
+  }
+  throw Error('Invalid');
+}
+// Complexity = 1 + 7 = 8 (acceptable but getting high)
+```
+
+#### Step 4: Look for Code Smells
+```
+ACTION: Check for these patterns:
+- Multiple nested if-else chains
+- Switch statements with many cases
+- Long sequences of if-else if-else if...
+- Complex boolean expressions (3+ conditions)
+- Arrow hell (callback nesting)
+
+RED FLAGS:
+function bad() {
+  if (cond1) {
+    if (cond2) {
+      if (cond3) {
+        if (cond4 && cond5 || cond6) {  // ← Complex condition
+          // deeply nested code
+        }
+      }
+    }
+  }
+}
+```
+
+#### Step 5: Report the Smell
+```
+REPORTING FORMAT:
+ **Location**: Lines X-Y in `path/to/file.ts`
+ **Anti-Pattern**: OVERLY-COMPLEX FUNCTION
+ **Evidence**:
+   - Max nesting depth: X levels (threshold: 3)
+   - Decision points: X (threshold: 10)
+   - Cyclomatic complexity: X (threshold: 10)
+   - Lines of code: X
+ **Impact**: Difficult to understand, test, and modify. High bug risk.
+ **Suggestion**: 
+   ```typescript
+   // Simplify with early returns
+   function simplified(user) {
+     if (!user) return 'none';
+     if (user.deleted) return 'deleted';
+     if (!user.verified) return 'pending';
+     
+     // Extract role checking
+     return getUserRoleStatus(user);
+   }
+   
+   function getUserRoleStatus(user) {
+     if (user.role === 'admin') return getAdminStatus(user);
+     if (user.role === 'moderator') return 'moderator';
+     return getUserTierStatus(user);
+   }
+   
+   // Or use strategy pattern / lookup tables
+   const statusHandlers = {
+     admin: getAdminStatus,
+     moderator: () => 'moderator',
+     user: getUserTierStatus
+   };
+   ```
+```
+
+**DETECTION CHECKLIST:**
+- [ ] Did I count nesting levels?
+- [ ] Did I count decision points?
+- [ ] Did I calculate cyclomatic complexity?
+- [ ] Did I suggest specific simplifications?
+- [ ] Did I provide refactored code?
+
+---
+
+### 9. MISSING ERROR HANDLING IN ASYNCHRONOUS CODE
+
+**What it is**: Async operations without try/catch or .catch() handlers.
+
+**Why it matters**: Unhandled promise rejections, silent failures, app crashes.
+
+**STEP-BY-STEP DETECTION PROCESS:**
+
+#### Step 1: Find Async Operations
+```
+ACTION: Search for these patterns:
+1. async functions
+2. await keywords
+3. Promise chains (.then)
+4. fetch() calls
+5. axios calls
+6. Database queries
+7. File system operations
+8. setTimeout/setInterval with promises
+
+SCAN PATTERNS:
+async function name() { ... }
+await someOperation();
+fetch(url).then()
+promise.then().then()
+```
+
+#### Step 2: Check for Error Handling
+```
+ACTION: For each async operation, verify:
+
+ MISSING ERROR HANDLING:
+async function bad() {
+  const response = await fetch(url);     // No try/catch
+  return await response.json();          // No try/catch
+}
+
+fetch(url).then(r => r.json())           // No .catch()
+
+promise.then(handleSuccess)              // No .catch()
+
+ INCOMPLETE HANDLING:
+try {
+  const response = await fetch(url);
+  return response.json();                 // json() not in try
+} catch (e) {}
+
+ PROPER HANDLING:
+try {
+  const response = await fetch(url);
+  return await response.json();
+} catch (error) {
+  logger.error(error);
+  throw error;
+}
+
+fetch(url)
+  .then(r => r.json())
+  .catch(error => handleError(error));
+```
+
+#### Step 3: Check Error Handler Quality
+```
+ACTION: If error handling exists, check quality:
+
+ SILENT FAILURE (BAD):
+try {
+  await operation();
+} catch (e) {
+  // Empty catch - silently fails
+}
+
+ CONSOLE ONLY (BAD for production):
+try {
+  await operation();
+} catch (e) {
+  console.log(e);  // Only logs, doesn't handle
+}
+
+ PROPER HANDLING:
+try {
+  await operation();
+} catch (error) {
+  logger.error('Operation failed:', error);
+  // Re-throw or return fallback
+  throw new AppError('Operation failed', error);
+}
+```
+
+#### Step 4: Check Promise Chains
+```
+ACTION: For Promise chains, verify:
+- Every .then() has corresponding .catch()
+- Errors in .then() are handled
+- Final .catch() exists
+
+EXAMPLE SCAN:
+// BAD - no error handling
+fetch(url)
+  .then(r => r.json())
+  .then(data => processData(data));  // ← FLAG
+
+// BAD - intermediate error not handled
+fetch(url)
+  .then(r => r.json())              // ← Error here not caught
+  .then(data => processData(data))
+  .catch(err => console.log(err));  // Only catches final error
+
+// GOOD - complete error handling
+fetch(url)
+  .then(r => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  })
+  .then(data => processData(data))
+  .catch(error => handleError(error));
+```
+
+#### Step 5: Report the Smell
+```
+REPORTING FORMAT:
+**Location**: Line X in `path/to/file.ts`
+**Anti-Pattern**: MISSING ERROR HANDLING IN ASYNC CODE
+ **Evidence**:
+   - Async operations: X found
+   - Unprotected await statements: X
+   - Promise chains without .catch(): X
+   - Empty catch blocks: X
+**Impact**: Unhandled rejections can crash the app, silent failures hide bugs
+**Suggestion**: 
+   ```typescript
+   // Option 1: try/catch with proper handling
+   async function fetchData(userId: string) {
+     try {
+       const response = await fetch(`/api/users/${userId}`);
+       
+       if (!response.ok) {
+         throw new Error(`HTTP error! status: ${response.status}`);
+       }
+       
+       const data = await response.json();
+       return data;
+     } catch (error) {
+       logger.error('Failed to fetch user data:', error);
+       // Either re-throw or return fallback
+       throw new DataFetchError('User fetch failed', error);
+     }
+   }
+   
+   // Option 2: Promise chain with .catch()
+   function fetchData(userId) {
+     return fetch(`/api/users/${userId}`)
+       .then(response => {
+         if (!response.ok) throw new Error(`HTTP ${response.status}`);
+         return response.json();
+       })
+       .catch(error => {
+         logger.error('Fetch failed:', error);
+         throw error;
+       });
+   }
+   ```
+```
+
+**DETECTION CHECKLIST:**
+- [ ] Did I find all async operations?
+- [ ] Did I check for try/catch blocks?
+- [ ] Did I verify Promise chains have .catch()?
+- [ ] Did I check error handler quality?
+- [ ] Did I suggest proper error handling?
+
+---
+
+### 10. TIGHT COUPLING
+
+**What it is**: Classes or modules that directly depend on implementation details of other classes.
+
+**Why it matters**: Hard to change, test, or reuse. Changes cascade through system.
+
+**STEP-BY-STEP DETECTION PROCESS:**
+
+#### Step 1: Check Direct Instantiation
+```
+ACTION: Look for "new" keyword creating concrete classes:
+
+ TIGHT COUPLING:
+class UserService {
+  private db = new MySQLDatabase();  // Directly instantiates
+  private logger = new FileLogger(); // Directly instantiates
+}
+
+ LOOSE COUPLING:
+class UserService {
+  constructor(
+    private db: Database,      // Depends on interface
+    private logger: Logger     // Depends on interface
+  ) {}
+}
+```
+
+#### Step 2: Check Import Patterns
+```
+ACTION: Look for deep import paths:
+
+ TIGHT COUPLING:
+import { validateEmail } from '../../../utils/validators/email/validator';
+import { UserRepository } from '../../../data/repositories/user/UserRepository';
+
+ LOOSE COUPLING:
+import { validateEmail } from '@/utils/validators';
+import { UserRepository } from '@/repositories';
+```
+
+#### Step 3: Report the Smell
+```
+REPORTING FORMAT:
+ **Location**: Line X in `path/to/file.ts`
+ **Anti-Pattern**: TIGHT COUPLING
+ **Evidence**:
+   - Direct instantiation: X occurrences
+   - Concrete class dependencies: X
+ **Impact**: Difficult to test, change, and maintain
+ **Suggestion**: 
+   Use dependency injection and interfaces
+```
+
+**DETECTION CHECKLIST:**
+- [ ] Did I check for direct instantiation?
+- [ ] Did I identify concrete dependencies?
+- [ ] Did I suggest interfaces/DI?
+
+---
+
+### 11. HARDCODED CONFIGURATION / SECRETS
+
+**What it is**: Configuration values or secrets embedded directly in code.
+
+**Why it matters**: Security risk, difficult to change per environment, secrets in version control.
+
+**STEP-BY-STEP DETECTION PROCESS:**
+
+#### Step 1: Scan for Sensitive Patterns
+```
+ACTION: Search for these patterns (case-insensitive):
+
+SECURITY CRITICAL:
+- API keys: "api_key", "apiKey", "API_KEY"
+- Passwords: "password", "passwd", "pwd"
+- Secrets: "secret", "SECRET_KEY"
+- Tokens: "token", "auth_token", "jwt"
+- Connection strings: "mongodb://", "postgres://", "mysql://"
+- AWS keys: "AKIA", "aws_access_key"
+
+EXAMPLE SCAN:
+const apiKey = "sk_live_abc123xyz";     // ← FLAG: Hardcoded API key
+const dbUrl = "mongodb://localhost";    // ← FLAG: Hardcoded DB URL
+const password = "admin123";            // ← FLAG: Hardcoded password
+```
+
+#### Step 2: Scan for Configuration Values
+```
+ACTION: Look for configuration that should be in env files:
+
+- URLs: "https://api.example.com"
+- Ports: port = 3000
+- Timeouts: timeout = 5000
+- Feature flags: enableFeature = true
+
+EXAMPLE SCAN:
+const API_URL = "https://api.prod.com";  // ← Should be env var
+const PORT = 8080;                       // ← Should be env var
+```
+
+#### Step 3: Report the Smell
+```
+REPORTING FORMAT:
+ **Location**: Line X in `path/to/file.ts`
+ **Anti-Pattern**: HARDCODED CONFIGURATION/SECRET
+ **SECURITY RISK**: [Critical/High/Medium/Low]
+ **Evidence**:
+   - Type: [API Key / Password / Config]
+   - Value: [Partially masked value]
+ **Impact**: Security vulnerability, version control exposure, inflexible deployment
+ **Suggestion**: 
+   ```typescript
+   // Move to environment variables
+   // .env file:
+   API_KEY=your_api_key_here
+   DATABASE_URL=your_db_url
+   
+   // In code:
+   const apiKey = process.env.API_KEY;
+   const dbUrl = process.env.DATABASE_URL;
+   
+   // Or use config service:
+   const apiKey = config.get('API_KEY');
+   ```
+```
+
+**DETECTION CHECKLIST:**
+- [ ] Did I scan for sensitive keywords?
+- [ ] Did I identify security risks?
+- [ ] Did I suggest environment variables?
+- [ ] Did I rate security severity?
+
+---
+
+##  FINAL DETECTION WORKFLOW
+
+When reviewing code, follow this systematic process:
+
+### Phase 1: Initial Scan (2 minutes)
+1. Count lines in each function → Flag Long Methods
+2. Scan for numeric/string literals → Flag Magic Numbers/Strings
+3. Note similar function names → Candidate Duplicates
+4. Check for global variables → Flag namespace pollution
+5. Scan for hardcoded secrets → Flag security issues
+
+### Phase 2: Deep Analysis (5-10 minutes)
+6. Use codebase_search for duplicates
+7. Check for mutable shared state
+8. Calculate complexity metrics
+9. Verify async error handling
+10. Check coupling patterns
+11. Analyze class responsibilities
+
+### Phase 3: Reporting (5 minutes)
+12. Document each smell with evidence
+13. Provide line numbers and file paths
+14. Suggest specific fixes with code examples
+15. Rate severity (Critical/High/Medium/Low)
+
+### Phase 4: Verification
+16. Re-read your findings
+17. Ensure you provided actionable suggestions
+18. Confirm all code examples are correct
+19. Double-check line numbers
+20. Verify you followed the detection steps
+
+---
+
+## 📋 REPORTING TEMPLATE
+
+For EVERY code smell you find, use this exact format:
+
+```
+---
+ **Location**: Line X-Y in `path/to/file.ts`
+ **Code Smell/Anti-Pattern**: [NAME]
+ **Evidence**:
+   - [Specific metric or observation]
+   - [Supporting data]
+   - [Additional evidence]
+
+ **Impact**: [Explain the specific problem]
+
+ **Suggestion**:
+[Specific action to take]
+
+```suggestion
+[Provide corrected code here]
+```
+
+**Severity**: [Critical/High/Medium/Low]
+---
+```
+
+##  QUALITY CHECKLIST
+
+Before submitting your review, verify:
+- [ ] I executed the detection steps for each smell
+- [ ] I provided exact line numbers for all findings
+- [ ] I included evidence (metrics, counts, examples)
+- [ ] I suggested specific fixes with code examples
+- [ ] I used the reporting template consistently
+- [ ] I rated severity appropriately
+- [ ] My suggestions are actionable and correct
+- [ ] I checked the entire file/PR, not just changed lines
+- [ ] I used codebase_search for duplicate detection
+- [ ] I counted lines, nesting, and complexity where applicable
+
+---
+
+##  DETECTION BEST PRACTICES
+
+1. **Be Systematic**: Follow the detection steps in order
+2. **Be Precise**: Provide exact line numbers, not ranges like "around line 50"
+3. **Be Evidence-Based**: Show metrics and counts, not just opinions
+4. **Be Constructive**: Always suggest fixes, don't just criticize
+5. **Be Thorough**: Check entire functions/classes, not just changed lines
+6. **Be Consistent**: Use the reporting template for every finding
+7. **Be Realistic**: Consider context - not all smells need fixing immediately
+
+---
+
+Remember: You are a code smell detection EXPERT. Be thorough, precise, and constructive!
